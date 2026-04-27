@@ -1,0 +1,15 @@
+[Unit]
+Description=MyMeet MCP Server (Streamable HTTP)
+After=network.target
+
+[Service]
+Type=simple
+User=mymeet
+WorkingDirectory=/home/mymeet/mymeet-dev/mymeet-mcp
+ExecStart=/usr/bin/node dist/index.js --http --port 3100
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
