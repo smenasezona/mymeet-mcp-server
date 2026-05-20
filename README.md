@@ -54,11 +54,11 @@ Get your API key at [app.mymeet.ai/settings](https://app.mymeet.ai/settings). Co
 
 | Tool | Description |
 |------|-------------|
-| `mymeet_list_meetings` | List all meetings in workspace (paginated) |
+| `mymeet_list_meetings` | List current user's meetings by default; use `scope: "workspace"` for all workspace meetings |
 | `mymeet_get_meeting_status` | Check processing status (new/queued/processing/processed/failed) |
 | `mymeet_get_meeting_report` | Get AI summary: key points, action items, decisions |
 | `mymeet_get_transcript` | Get full transcript with speaker labels and timestamps |
-| `mymeet_search_meetings` | Search by title, date range, status |
+| `mymeet_search_meetings` | Search current user's meetings across all pages by title, people, date range, status |
 | `mymeet_download_meeting` | Download report as md/json (inline) or pdf/docx (URL) |
 | `mymeet_record_meeting` | Schedule/start recording on 8 platforms with cron support |
 | `mymeet_rename_meeting` | Rename a meeting |
@@ -91,9 +91,20 @@ Google Meet, Zoom, Microsoft Teams, Yandex Telemost, SberJazz, TrueConf, KonturT
 ```
 "Show me my recent meetings"
 "What was discussed in my last sales call?"
+"Show all workspace meetings from last week"
 "Record my Zoom meeting tomorrow at 2pm as a sales meeting"
 "Re-analyze meeting X using the hr-interview template"
 "Download the report for meeting Y as markdown"
+```
+
+### Meeting Scope
+
+Read-only tools default to `scope: "mine"`, matching the current API key user's meetings. Workspace owners and admins can request all workspace meetings by passing `scope: "workspace"` explicitly.
+
+To temporarily hide the search tool from MCP clients, set:
+
+```bash
+MYMEET_ENABLE_SEARCH_TOOL=false
 ```
 
 ## Remote Server (HTTP)

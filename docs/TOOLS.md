@@ -8,14 +8,15 @@ Detailed documentation for all 11 tools with parameters, examples, and edge case
 
 ### mymeet_list_meetings
 
-List all meetings in workspace with pagination.
+List meetings with pagination. Defaults to the current user's own meetings; use `scope: "workspace"` only when the user explicitly asks for all workspace meetings.
 
 **Parameters:**
 
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
+| `scope` | enum | No | `mine` | `mine` for current user's meetings, `workspace` for all workspace meetings |
 | `page` | number | No | 1 | Page number |
-| `perPage` | number | No | 20 | Results per page (max: 100) |
+| `perPage` | number | No | 20 | Results per page (max: 50) |
 
 **Example prompt:** "Show me my recent meetings"
 
@@ -38,8 +39,9 @@ List all meetings in workspace with pagination.
 ```
 
 **Edge cases:**
-- Empty workspace: returns `{ meetings: [], total: 0 }`
+- Empty result set: returns `{ meetings: [], total: 0 }`
 - Invalid page: returns empty array
+- Public `page` is one-based; the MCP server converts it to the backend's zero-based page index.
 
 ---
 
@@ -110,28 +112,54 @@ Get the full transcript with speaker labels and timestamps.
 
 ### mymeet_search_meetings
 
-Search meetings by title, date range, or status.
+Search meetings by title, people, date range, or status. Defaults to the current user's own meetings; use `scope: "workspace"` only when the user explicitly asks for all workspace meetings.
 
 **Parameters:**
 
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
-| `query` | string | No | — | Search by meeting title |
+| `scope` | enum | No | `mine` | `mine` for current user's meetings, `workspace` for all workspace meetings |
+| `query` | string | No | — | Search by meeting title/name/entityName, authors, speakers, participants |
 | `dateFrom` | string | No | — | ISO 8601 date (e.g. `2024-03-01`) |
-| `dateTo` | string | No | — | ISO 8601 date |
+| `dateTo` | string | No | — | ISO 8601 date; date-only values include the full day |
 | `status` | enum | No | — | `new`, `queued`, `processing`, `processed`, `failed` |
-| `page` | number | No | 1 | Page number |
-| `perPage` | number | No | 50 | Results per page |
+| `page` | number | No | 1 | Result page after filtering |
+| `perPage` | number | No | 50 | Filtered results per page (max: 50) |
 
 **Example prompts:**
 - "Find all sales meetings from last week"
+- "Find my meeting with Vladimir"
 - "Show me meetings that failed processing"
+- "Show all workspace meetings from yesterday" (uses `scope: "workspace"`)
 
-**How it works:** Fetches meetings from the API and filters client-side (the MyMeet API doesn't support server-side search). This means pagination happens before filtering.
+**How it works:** Fetches all available pages for the selected scope in batches of 50, filters client-side, then applies `page`/`perPage` to the filtered result. The MyMeet API doesn't support server-side search yet.
+
+**Example response:**
+```json
+{
+  "total": 1,
+  "returned": 1,
+  "page": 1,
+  "perPage": 50,
+  "scope": "mine",
+  "truncated": false,
+  "meetings": [
+    {
+      "id": "abc-123",
+      "title": "Weekly Sales Sync",
+      "date": "2026-05-15T10:00:00Z",
+      "status": "processed"
+    }
+  ]
+}
+```
 
 **Edge cases:**
-- No matches: returns `{ total: 0, meetings: [] }`
+- No matches: returns `{ total: 0, returned: 0, meetings: [] }`
 - Combined filters: all filters are AND-ed together
+- `truncated: true` means more filtered results exist beyond the returned page, or the scan hit its safety page limit.
+
+**Kill switch:** Set `MYMEET_ENABLE_SEARCH_TOOL=false` (or `0`) to avoid registering this tool.
 
 ---
 
