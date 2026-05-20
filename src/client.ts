@@ -13,7 +13,7 @@ import {
   RateLimitError,
   ApiError,
 } from './errors.js';
-import type { Format, Source, Template } from './types.js';
+import type { Format, MeetingScope, Source, Template } from './types.js';
 
 const DEFAULT_BASE_URL = 'https://backend.mymeet.ai';
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -112,10 +112,19 @@ export class MyMeetApiClient {
 
   // ── Public API ────────────────────────────────────────────────────────────
 
-  async listMeetings(page = 1, perPage = 20): Promise<unknown> {
+  async listMeetings(page = 1, perPage = 20, scope: MeetingScope = 'mine'): Promise<unknown> {
+    const backendPage = Math.max(0, page - 1);
+    const path = scope === 'workspace'
+      ? '/api/workspaces/active/all-meetings'
+      : '/api/workspaces/active/user-meetings';
+    const params = new URLSearchParams({
+      page: String(backendPage),
+      perPage: String(perPage),
+    });
+
     return this.request(
       'GET',
-      `/api/workspaces/active/all-meetings?page=${page}&perPage=${perPage}`,
+      `${path}?${params.toString()}`,
     );
   }
 

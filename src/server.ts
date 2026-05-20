@@ -48,7 +48,9 @@ export function createServer(apiKey: string, baseUrl?: string): McpServer {
   registerGetMeetingStatus(server, client);
   registerGetMeetingReport(server, client);
   registerGetTranscript(server, client);
-  registerSearchMeetings(server, client);
+  if (isSearchToolEnabled()) {
+    registerSearchMeetings(server, client);
+  }
   registerDownloadMeeting(server, client);
 
   // Write
@@ -85,7 +87,12 @@ export function createServer(apiKey: string, baseUrl?: string): McpServer {
     },
   );
 
-  logger.info(`Server ready: 11 tools + templates resource`);
+  logger.info(`Server ready: ${isSearchToolEnabled() ? 11 : 10} tools + templates resource`);
 
   return server;
+}
+
+export function isSearchToolEnabled(value = process.env.MYMEET_ENABLE_SEARCH_TOOL): boolean {
+  const normalized = value?.trim().toLowerCase();
+  return normalized !== 'false' && normalized !== '0';
 }

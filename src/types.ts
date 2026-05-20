@@ -70,38 +70,55 @@ export type MeetingStatus = (typeof STATUSES)[number];
 
 export const StatusSchema = z.enum(STATUSES);
 
+// ── Meeting visibility scope ─────────────────────────────────────────────────
+
+export const MEETING_SCOPES = ['mine', 'workspace'] as const;
+
+export type MeetingScope = (typeof MEETING_SCOPES)[number];
+
+export const MeetingScopeSchema = z.enum(MEETING_SCOPES);
+
 // ── Tool input schemas ───────────────────────────────────────────────────────
 
 export const ListMeetingsSchema = z.object({
+  scope: MeetingScopeSchema.optional().describe(
+    'Meeting visibility scope. Defaults to "mine" for the current user. Use "workspace" only when the user explicitly asks for all workspace meetings.',
+  ),
   page: z.number().int().positive().optional().describe('Page number (default: 1)'),
   perPage: z
     .number()
     .int()
     .min(1)
-    .max(100)
+    .max(50)
     .optional()
-    .describe('Results per page (default: 20, max: 100)'),
+    .describe('Results per page (default: 20, max: 50)'),
 });
 
 export const SearchMeetingsSchema = z.object({
-  query: z.string().optional().describe('Search by meeting title'),
+  scope: MeetingScopeSchema.optional().describe(
+    'Meeting visibility scope. Defaults to "mine" for the current user. Use "workspace" only when the user explicitly asks for all workspace meetings.',
+  ),
+  query: z
+    .string()
+    .optional()
+    .describe('Search by meeting title/name/entityName, authors, speakers, or participants'),
   dateFrom: z
     .string()
     .optional()
-    .describe('Filter meetings created after this date (ISO 8601, e.g. 2024-01-15)'),
+    .describe('Filter meetings on or after this date (ISO 8601, e.g. 2024-01-15)'),
   dateTo: z
     .string()
     .optional()
-    .describe('Filter meetings created before this date (ISO 8601)'),
+    .describe('Filter meetings on or before this date (ISO 8601). Date-only values include the full day.'),
   status: StatusSchema.optional().describe('Filter by processing status'),
   page: z.number().int().positive().optional().describe('Page number (default: 1)'),
   perPage: z
     .number()
     .int()
     .min(1)
-    .max(100)
+    .max(50)
     .optional()
-    .describe('Results per page (default: 20, max: 100)'),
+    .describe('Filtered results per page (default: 50, max: 50)'),
 });
 
 export const MeetingIdSchema = z.object({

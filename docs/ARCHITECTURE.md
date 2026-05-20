@@ -102,11 +102,11 @@ Every API call has a 15-second timeout via `AbortController`.
 
 **Why:** MCP tool responses are text-only. Binary data can't be serialized through the protocol.
 
-### 6. Client-Side Search
+### 6. Scoped Listing and Client-Side Search
 
-`mymeet_search_meetings` fetches meetings from the API, then filters locally.
+`mymeet_list_meetings` defaults to `scope=mine`, maps `mine` to `/api/workspaces/active/user-meetings`, maps `workspace` to `/api/workspaces/active/all-meetings`, and converts public one-based pages to the backend's zero-based page index. `mymeet_search_meetings` fetches all pages for the selected scope in batches of 50, then filters locally.
 
-**Why:** The MyMeet API (`/api/workspaces/active/all-meetings`) doesn't support server-side search/filtering. This is a known limitation — a future API version may add it.
+**Why:** The MyMeet API doesn't support server-side search/filtering. Search must scan before filtering so a match on page 3 is not missed. The search tool can be hidden with `MYMEET_ENABLE_SEARCH_TOOL=false` while backend search is unavailable or under investigation.
 
 ## How to Add a New Tool
 

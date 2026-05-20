@@ -6,11 +6,11 @@ import { formatToolError } from '../errors.js';
 export function registerListMeetings(server: McpServer, client: MyMeetApiClient): void {
   server.tool(
     'mymeet_list_meetings',
-    'List all meetings in workspace. Returns paginated results with title, date, status, template. Use this first to discover available meetings.',
+    'List meetings visible to the current user. Defaults to scope="mine" for personal meeting requests. Use scope="workspace" only when the user explicitly asks for all workspace meetings. Returns paginated results with title, date, status, template.',
     ListMeetingsSchema.shape,
-    async ({ page, perPage }) => {
+    async ({ scope, page, perPage }) => {
       try {
-        const result = await client.listMeetings(page ?? 1, perPage ?? 20);
+        const result = await client.listMeetings(page ?? 1, perPage ?? 20, scope ?? 'mine');
         return {
           content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
         };
