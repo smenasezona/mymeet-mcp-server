@@ -12,6 +12,9 @@
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsup",
     "dev": "tsx src/index.ts",
@@ -45,6 +48,6 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/mymeet-ai-first-company/mymeet-mcp-server"
+    "url": "https://github.com/MyMeetAI/mymeet-mcp-server"
   }
 }
