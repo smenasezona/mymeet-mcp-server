@@ -39,18 +39,19 @@ export class MyMeetApiClient {
   ): Promise<T> {
     const url = new URL(path, this.baseUrl);
 
-    // Inject api_key as query parameter (MyMeet API convention)
-    url.searchParams.set('api_key', this.apiKey);
-
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    // Key travels in the X-API-KEY header (not the URL) so it never leaks into logs.
+    const headers: Record<string, string> = { 'X-API-KEY': this.apiKey };
+    if (body) headers['Content-Type'] = 'application/json';
 
     try {
       logger.debug(`${method} ${path}`, { attempt });
 
       const response = await fetch(url.toString(), {
         method,
-        headers: body ? { 'Content-Type': 'application/json' } : undefined,
+        headers,
         body: body ? JSON.stringify(body) : undefined,
         signal: controller.signal,
       });
