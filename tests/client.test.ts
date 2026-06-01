@@ -20,11 +20,14 @@ describe('MyMeetApiClient.listMeetings', () => {
     const client = new MyMeetApiClient('test-api-key', 'https://backend.example');
     await client.listMeetings();
 
-    const url = new URL(fetchMock.mock.calls[0][0] as string);
+    const [calledUrl, init] = fetchMock.mock.calls[0];
+    const url = new URL(calledUrl as string);
     expect(url.pathname).toBe('/api/workspaces/active/user-meetings');
     expect(url.searchParams.get('page')).toBe('0');
     expect(url.searchParams.get('perPage')).toBe('20');
-    expect(url.searchParams.get('api_key')).toBe('test-api-key');
+    // key travels in the X-API-KEY header, never in the URL
+    expect(url.searchParams.has('api_key')).toBe(false);
+    expect((init?.headers as Record<string, string>)['X-API-KEY']).toBe('test-api-key');
   });
 
   it('passes explicit workspace scope and converts later pages to backend zero-based pages', async () => {
