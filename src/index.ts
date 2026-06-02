@@ -13,6 +13,33 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createServer } from './server.js';
 import { logger } from './logger.js';
+import type { Credential } from './client.js';
+import {
+  readOAuthConfig,
+  createRemoteVerifier,
+  isJwtFormat,
+  extractVerifiedEmail,
+} from './auth.js';
+
+function sendUnauthorized(res: ServerResponse, oauthConfig: ReturnType<typeof readOAuthConfig>): void {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (oauthConfig) {
+    // RFC 9728: point the client at our protected-resource metadata.
+    const base = new URL(oauthConfig.audience).origin;
+    headers['WWW-Authenticate'] =
+      `Bearer resource_metadata="${base}/.well-known/oauth-protected-resource"`;
+  }
+  res.writeHead(401, headers);
+  res.end(
+    JSON.stringify({
+      error: 'Unauthorized',
+      message: oauthConfig
+        ? 'Provide your MyMeet API key (Authorization: Bearer <key>) or sign in via OAuth.'
+        : 'Provide your MyMeet API key in the Authorization header: Bearer <your-key>',
+      help: 'https://app.mymeet.ai/settings',
+    }),
+  );
+}
 
 async function main(): Promise<void> {
   // ── Parse args ──────────────────────────────────────────────────────────────
@@ -50,8 +77,14 @@ async function main(): Promise<void> {
     return;
   }
 
-  // ── HTTP mode: API key from Authorization header per request ────────────────
+  // ── HTTP mode: credentials per request (api key or OAuth JWT) ───────────────
   logger.info(`Starting MyMeet MCP server (HTTP transport on port ${port})...`);
+
+  const oauthConfig = readOAuthConfig();
+  const verifyToken = oauthConfig ? createRemoteVerifier(oauthConfig) : null;
+  if (oauthConfig) {
+    logger.info('OAuth enabled — JWT access tokens accepted alongside api keys');
+  }
 
   const httpServer = createHttpServer(async (req: IncomingMessage, res: ServerResponse) => {
     // CORS headers for browser-based MCP clients
@@ -73,28 +106,56 @@ async function main(): Promise<void> {
       return;
     }
 
-    // MCP endpoint
     const urlPath = req.url?.split('?')[0];
-    if (urlPath === '/mcp') {
-      // Extract API key from Authorization header
-      const authHeader = req.headers['authorization'];
-      const apiKey = authHeader?.startsWith('Bearer ')
-        ? authHeader.slice(7)
-        : process.env.MYMEET_API_KEY; // fallback for dev/testing
 
-      if (!apiKey) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          error: 'Missing API key',
-          message: 'Provide your MyMeet API key in the Authorization header: Bearer <your-key>',
-          help: 'Get your key at https://app.mymeet.ai/settings',
-        }));
+    // OAuth Protected Resource Metadata (RFC 9728) — tells OAuth clients where to authenticate.
+    if (urlPath === '/.well-known/oauth-protected-resource') {
+      if (!oauthConfig) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('OAuth is not enabled on this server');
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          resource: oauthConfig.audience,
+          authorization_servers: [oauthConfig.issuer],
+          bearer_methods_supported: ['header'],
+        }),
+      );
+      return;
+    }
+
+    // MCP endpoint
+    if (urlPath === '/mcp') {
+      // Resolve the caller: a JWT (OAuth) or a raw api key (legacy).
+      const authHeader = req.headers['authorization'];
+      const bearer = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+
+      let credential: Credential | undefined;
+      if (bearer && oauthConfig && verifyToken && isJwtFormat(bearer)) {
+        try {
+          const payload = await verifyToken(bearer);
+          credential = { kind: 'oauth', email: extractVerifiedEmail(payload, oauthConfig) };
+        } catch {
+          logger.warn('Rejected an OAuth token'); // never log the token itself
+          sendUnauthorized(res, oauthConfig);
+          return;
+        }
+      } else if (bearer) {
+        credential = { kind: 'apikey', apiKey: bearer };
+      } else if (process.env.MYMEET_API_KEY) {
+        credential = { kind: 'apikey', apiKey: process.env.MYMEET_API_KEY }; // dev fallback
+      }
+
+      if (!credential) {
+        sendUnauthorized(res, oauthConfig);
         return;
       }
 
       try {
         // Create a fresh server + transport per request (stateless mode)
-        const mcpServer = createServer(apiKey, baseUrl);
+        const mcpServer = createServer(credential, baseUrl);
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: undefined, // stateless — simplest deployment
         });

@@ -5,7 +5,7 @@
  * Supports STDIO (default) and HTTP transports.
  */
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { MyMeetApiClient } from './client.js';
+import { MyMeetApiClient, type Credential } from './client.js';
 import { logger } from './logger.js';
 import { TEMPLATES, TEMPLATE_DESCRIPTIONS } from './types.js';
 
@@ -22,7 +22,7 @@ import { registerRegenerateTemplate } from './tools/regenerate-template.js';
 import { registerUpdateSummary } from './tools/update-summary.js';
 import { registerDeleteMeeting } from './tools/delete-meeting.js';
 
-export function createServer(apiKey: string, baseUrl?: string): McpServer {
+export function createServer(credential: Credential | string, baseUrl?: string): McpServer {
   const server = new McpServer(
     {
       name: 'mymeet',
@@ -37,7 +37,7 @@ export function createServer(apiKey: string, baseUrl?: string): McpServer {
     },
   );
 
-  const client = new MyMeetApiClient(apiKey, baseUrl);
+  const client = new MyMeetApiClient(credential, baseUrl);
 
   // ── Register all 11 tools ──────────────────────────────────────────────────
 

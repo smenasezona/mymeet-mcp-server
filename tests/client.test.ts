@@ -11,6 +11,7 @@ function jsonResponse(body: unknown): Response {
 describe('MyMeetApiClient.listMeetings', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it('converts the public one-based first page to backend page zero and defaults scope to mine', async () => {
@@ -24,7 +25,11 @@ describe('MyMeetApiClient.listMeetings', () => {
     expect(url.pathname).toBe('/api/workspaces/active/user-meetings');
     expect(url.searchParams.get('page')).toBe('0');
     expect(url.searchParams.get('perPage')).toBe('20');
-    expect(url.searchParams.get('api_key')).toBe('test-api-key');
+
+    // The key travels in the X-API-KEY header, never in the URL (avoids leaking into logs).
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    expect((init.headers as Record<string, string>)['X-API-KEY']).toBe('test-api-key');
+    expect(url.searchParams.get('api_key')).toBeNull();
   });
 
   it('passes explicit workspace scope and converts later pages to backend zero-based pages', async () => {
@@ -38,5 +43,23 @@ describe('MyMeetApiClient.listMeetings', () => {
     expect(url.pathname).toBe('/api/workspaces/active/all-meetings');
     expect(url.searchParams.get('page')).toBe('1');
     expect(url.searchParams.get('perPage')).toBe('50');
+  });
+
+  it('sends the service secret and verified email for an OAuth credential', async () => {
+    vi.stubEnv('MYMEET_SERVICE_SECRET', 'svc-secret');
+    const fetchMock = vi.fn(async () => jsonResponse({ meetings: [], total: 0 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const client = new MyMeetApiClient(
+      { kind: 'oauth', email: 'user@mymeet.ai' },
+      'https://backend.example',
+    );
+    await client.listMeetings();
+
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    const headers = init.headers as Record<string, string>;
+    expect(headers['X-Service-Secret']).toBe('svc-secret');
+    expect(headers['X-User-Email']).toBe('user@mymeet.ai');
+    expect(headers['X-API-KEY']).toBeUndefined();
   });
 });
