@@ -104,7 +104,7 @@ describe('createVerifier (full verify path)', () => {
     return { privateKey, verify, publicKey };
   }
 
-  function sign(privateKey: CryptoKey, overrides: Record<string, unknown> = {}) {
+  function buildJwt(privateKey: CryptoKey, overrides: Record<string, unknown> = {}) {
     return new SignJWT({
       'https://mymeet.ai/email': 'user@mymeet.ai',
       'https://mymeet.ai/email_verified': true,
@@ -119,7 +119,7 @@ describe('createVerifier (full verify path)', () => {
 
   it('accepts a correctly signed token and returns claims', async () => {
     const { privateKey, verify } = await setup();
-    const token = await sign(privateKey).sign(privateKey);
+    const token = await buildJwt(privateKey).sign(privateKey);
 
     const payload = await verify(token);
 
@@ -165,7 +165,7 @@ describe('createVerifier (full verify path)', () => {
   it('rejects a token signed by a different key (forgery)', async () => {
     const { verify } = await setup();
     const { privateKey: attackerKey } = await generateKeyPair('RS256');
-    const token = await sign(attackerKey).sign(attackerKey);
+    const token = await buildJwt(attackerKey).sign(attackerKey);
 
     await expect(verify(token)).rejects.toThrow();
   });

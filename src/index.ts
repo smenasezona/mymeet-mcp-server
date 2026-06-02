@@ -24,7 +24,8 @@ import {
 function sendUnauthorized(res: ServerResponse, oauthConfig: ReturnType<typeof readOAuthConfig>): void {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (oauthConfig) {
-    // RFC 9728: point the client at our protected-resource metadata.
+    // RFC 9728: metadata lives on the resource's own origin, and the resource IS the
+    // audience — so this server must be served on the audience's origin (true on our deploy).
     const base = new URL(oauthConfig.audience).origin;
     headers['WWW-Authenticate'] =
       `Bearer resource_metadata="${base}/.well-known/oauth-protected-resource"`;
@@ -81,6 +82,9 @@ async function main(): Promise<void> {
   const oauthConfig = readOAuthConfig();
   const verifyToken = oauthConfig ? createRemoteVerifier(oauthConfig) : null;
   if (oauthConfig) {
+    if (!process.env.MYMEET_SERVICE_SECRET) {
+      logger.error('MYMEET_SERVICE_SECRET is not set — OAuth requests will be rejected (cannot authenticate to the backend)');
+    }
     logger.info('OAuth enabled — JWT access tokens accepted alongside api keys');
   }
 
@@ -142,9 +146,8 @@ async function main(): Promise<void> {
         }
       } else if (bearer) {
         credential = { kind: 'apikey', apiKey: bearer };
-      } else if (process.env.MYMEET_API_KEY) {
-        credential = { kind: 'apikey', apiKey: process.env.MYMEET_API_KEY }; // dev fallback
       }
+      // No env-key fallback in HTTP mode: each client must present its own credential.
 
       if (!credential) {
         sendUnauthorized(res, oauthConfig);

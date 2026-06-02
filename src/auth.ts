@@ -84,7 +84,7 @@ export function extractVerifiedEmail(payload: JWTPayload, config: OAuthConfig): 
     throw new Error('Email is not verified — refusing to map to a MyMeet account');
   }
   const email = payload[config.emailClaim];
-  if (typeof email !== 'string' || !email.includes('@')) {
+  if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new Error('Token does not carry a usable email claim');
   }
   return email.trim();

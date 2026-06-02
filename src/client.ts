@@ -33,6 +33,10 @@ export class MyMeetApiClient {
     this.credential =
       typeof credential === 'string' ? { kind: 'apikey', apiKey: credential } : credential;
     this.serviceSecret = process.env.MYMEET_SERVICE_SECRET ?? '';
+    // Fail closed: never send an empty X-Service-Secret to the backend.
+    if (this.credential.kind === 'oauth' && !this.serviceSecret) {
+      throw new Error('MYMEET_SERVICE_SECRET is required for OAuth credentials');
+    }
     this.baseUrl = baseUrl.replace(/\/$/, '');
   }
 

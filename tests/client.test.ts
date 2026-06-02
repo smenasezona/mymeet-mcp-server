@@ -61,4 +61,11 @@ describe('MyMeetApiClient.listMeetings', () => {
     expect(headers['X-User-Email']).toBe('user@mymeet.ai');
     expect(headers['X-API-KEY']).toBeUndefined();
   });
+
+  it('rejects an OAuth credential when MYMEET_SERVICE_SECRET is missing (fail closed)', () => {
+    vi.stubEnv('MYMEET_SERVICE_SECRET', '');
+    expect(() => new MyMeetApiClient({ kind: 'oauth', email: 'user@mymeet.ai' })).toThrow(
+      /MYMEET_SERVICE_SECRET/,
+    );
+  });
 });
