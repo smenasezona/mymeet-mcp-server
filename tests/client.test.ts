@@ -11,6 +11,7 @@ function jsonResponse(body: unknown): Response {
 describe('MyMeetApiClient.listMeetings', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it('converts the public one-based first page to backend page zero and defaults scope to mine', async () => {
@@ -41,5 +42,23 @@ describe('MyMeetApiClient.listMeetings', () => {
     expect(url.pathname).toBe('/api/workspaces/active/all-meetings');
     expect(url.searchParams.get('page')).toBe('1');
     expect(url.searchParams.get('perPage')).toBe('50');
+  });
+
+  it('sends the service secret and verified email for an OAuth credential', async () => {
+    vi.stubEnv('MYMEET_SERVICE_SECRET', 'svc-secret');
+    const fetchMock = vi.fn(async () => jsonResponse({ meetings: [], total: 0 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const client = new MyMeetApiClient(
+      { kind: 'oauth', email: 'user@mymeet.ai' },
+      'https://backend.example',
+    );
+    await client.listMeetings();
+
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    const headers = init.headers as Record<string, string>;
+    expect(headers['X-Service-Secret']).toBe('svc-secret');
+    expect(headers['X-User-Email']).toBe('user@mymeet.ai');
+    expect(headers['X-API-KEY']).toBeUndefined();
   });
 });
