@@ -20,12 +20,23 @@ const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_RETRIES = 3;
 const RETRY_DELAYS = [1_000, 2_000, 4_000]; // exponential backoff
 
+export type Credential =
+  | { kind: 'apikey'; apiKey: string }
+  | { kind: 'oauth'; email: string };
+
 export class MyMeetApiClient {
-  private apiKey: string;
+  private credential: Credential;
+  private serviceSecret: string;
   private baseUrl: string;
 
-  constructor(apiKey: string, baseUrl = DEFAULT_BASE_URL) {
-    this.apiKey = apiKey;
+  constructor(credential: Credential | string, baseUrl = DEFAULT_BASE_URL) {
+    this.credential =
+      typeof credential === 'string' ? { kind: 'apikey', apiKey: credential } : credential;
+    this.serviceSecret = process.env.MYMEET_SERVICE_SECRET ?? '';
+    // Fail closed: never send an empty X-Service-Secret to the backend.
+    if (this.credential.kind === 'oauth' && !this.serviceSecret) {
+      throw new Error('MYMEET_SERVICE_SECRET is required for OAuth credentials');
+    }
     this.baseUrl = baseUrl.replace(/\/$/, '');
   }
 
@@ -42,8 +53,12 @@ export class MyMeetApiClient {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-    // Key travels in the X-API-KEY header (not the URL) so it never leaks into logs.
-    const headers: Record<string, string> = { 'X-API-KEY': this.apiKey };
+    // Credentials travel in headers (never the URL) so they don't leak into logs.
+    // api key → X-API-KEY (legacy); OAuth → trusted service secret + the verified email.
+    const headers: Record<string, string> =
+      this.credential.kind === 'apikey'
+        ? { 'X-API-KEY': this.credential.apiKey }
+        : { 'X-Service-Secret': this.serviceSecret, 'X-User-Email': this.credential.email };
     if (body) headers['Content-Type'] = 'application/json';
 
     try {
